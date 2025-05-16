@@ -1,0 +1,911 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced 5-a-Side Stat Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8;
+            color: #1e293b;
+        }
+        .tab-button {
+            padding: 0.75rem 1.5rem;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+        .tab-button.active {
+            border-bottom-color: #3b82f6; /* blue-500 */
+            color: #3b82f6;
+        }
+        .tab-button:hover {
+            background-color: #e0e7ff; /* indigo-100 */
+        }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        .player-card {
+            transition: all 0.3s ease-in-out;
+        }
+        .player-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .btn {
+            transition: all 0.2s ease;
+            border-radius: 0.375rem; /* rounded-md */
+            padding: 0.625rem 1.25rem; /* py-2.5 px-5 */
+            font-weight: 500;
+        }
+        .btn-sm {
+            padding: 0.375rem 0.75rem; /* py-1.5 px-3 */
+            font-size: 0.875rem; /* text-sm */
+        }
+        .btn-primary { background-color: #3b82f6; color: white; }
+        .btn-primary:hover { background-color: #2563eb; }
+        .btn-secondary { background-color: #64748b; color: white; }
+        .btn-secondary:hover { background-color: #475569; }
+        .btn-danger { background-color: #ef4444; color: white; }
+        .btn-danger:hover { background-color: #dc2626; }
+        .btn-success { background-color: #22c55e; color: white; }
+        .btn-success:hover { background-color: #16a34a; }
+        .btn-warning { background-color: #f59e0b; color: white; } /* amber-500 */
+        .btn-warning:hover { background-color: #d97706; } /* amber-600 */
+        
+        .modal {
+            display: none; position: fixed; z-index: 100;
+            left: 0; top: 0; width: 100%; height: 100%;
+            overflow: auto; background-color: rgba(0,0,0,0.6);
+        }
+        .modal-content {
+            background-color: #ffffff; margin: 10% auto; padding: 2rem;
+            border-radius: 0.5rem; width: 90%; max-width: 500px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+        .message-box {
+            display: none; position: fixed; top: 20px; left: 50%;
+            transform: translateX(-50%); background-color: #3b82f6;
+            color: white; padding: 1rem 1.5rem; border-radius: 0.375rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1); z-index: 200; font-size: 0.875rem;
+        }
+        .player-list-container::-webkit-scrollbar { width: 8px; }
+        .player-list-container::-webkit-scrollbar-track { background: #e5e7eb; border-radius: 10px; }
+        .player-list-container::-webkit-scrollbar-thumb { background: #9ca3af; border-radius: 10px; }
+        .player-list-container::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+        
+        .keeper-badge {
+            font-size: 0.7rem;
+            padding: 0.1rem 0.4rem;
+            border-radius: 0.25rem;
+            background-color: #f59e0b; /* amber-500 */
+            color: white;
+            font-weight: bold;
+            margin-left: 0.5rem;
+        }
+    </style>
+</head>
+<body class="min-h-screen p-4 md:p-8">
+    <div id="messageBox" class="message-box"></div>
+
+    <div class="container mx-auto max-w-7xl">
+        <header class="text-center mb-6">
+            <h1 class="text-4xl font-bold text-blue-600">⚽ Advanced 5-a-Side Stat Tracker 🥅</h1>
+        </header>
+
+        <nav class="mb-6 bg-white shadow rounded-lg">
+            <div class="flex border-b border-slate-200">
+                <button class="tab-button active" data-tab="newGameSetupSection">New Game / Current Game</button>
+                <button class="tab-button" data-tab="overallStatsSection">Overall Player Stats</button>
+                <button class="tab-button" data-tab="gamesHistorySection">Games History</button>
+            </div>
+        </nav>
+
+        <section id="newGameSetupSection" class="tab-content active">
+            <div id="playerSetupScreen" class="bg-white p-6 rounded-lg shadow-lg mb-8">
+                <h2 class="text-2xl font-semibold mb-2 text-slate-700">Setup New Game</h2>
+                <p class="text-sm text-slate-500 mb-4">Select existing players, add new ones (up to 10 total for the match), and name your opponent.</p>
+                
+                <div class="mb-4">
+                    <label for="opponentNameInput" class="block text-sm font-medium text-slate-700 mb-1">Opponent Name:</label>
+                    <input type="text" id="opponentNameInput" placeholder="e.g., The All-Stars" class="w-full sm:w-1/2 p-2 border border-slate-300 rounded-md shadow-sm">
+                </div>
+
+                <h3 class="text-lg font-semibold mb-2 text-slate-600">Select Players for this Game:</h3>
+                <div id="existingPlayersList" class="mb-4 max-h-60 overflow-y-auto p-2 border rounded-md bg-slate-50 space-y-2">
+                    </div>
+                
+                <h3 class="text-lg font-semibold mb-2 text-slate-600">Add New Players (if needed):</h3>
+                <div id="newPlayerInputsContainer" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mb-6">
+                    </div>
+                <p class="text-xs text-slate-500 mb-4">Selected/added players will form the squad for this game. The first 5 will start on field. You'll designate a keeper once the game starts.</p>
+                <button id="startGameButton" class="btn btn-primary w-full sm:w-auto">Start Game</button>
+            </div>
+
+            <div id="gameInterfaceScreen" class="hidden">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-semibold text-slate-700">Current Game: You vs <span id="currentOpponentNameDisplay" class="text-blue-600">Opponent</span></h2>
+                    <button id="endGameButton" class="btn btn-danger">End Game & Save Stats</button>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                    <div class="lg:col-span-1 bg-white p-6 rounded-lg shadow-lg">
+                        <h3 class="text-xl font-semibold mb-4 text-slate-700">Scoreboard</h3>
+                        <div class="text-center mb-6">
+                            <span id="teamScoreDisplay" class="text-5xl font-bold text-blue-600">0</span>
+                            <span class="text-3xl mx-2 text-slate-400">-</span>
+                            <span id="opponentScoreDisplay" class="text-5xl font-bold text-red-500">0</span>
+                            <div class="text-xs text-slate-500 mt-1">OUR SCORE - THEIR SCORE</div>
+                        </div>
+                        <h3 class="text-xl font-semibold mb-4 text-slate-700">Record Goals</h3>
+                        <div class="space-y-3">
+                            <button id="ourGoalButton" class="btn btn-success w-full">Our Team Scored!</button>
+                            <button id="theirGoalButton" class="btn btn-danger w-full">Opponent Scored</button>
+                        </div>
+                    </div>
+
+                    <div class="lg:col-span-1 bg-white p-6 rounded-lg shadow-lg player-list-container overflow-y-auto" style="max-height: 450px;">
+                        <h3 class="text-xl font-semibold mb-4 text-slate-700">🟢 On The Field (<span id="onFieldCount">0</span>/5)</h3>
+                        <div id="onFieldPlayersList" class="space-y-2"></div>
+                    </div>
+
+                    <div class="lg:col-span-1 bg-white p-6 rounded-lg shadow-lg player-list-container overflow-y-auto" style="max-height: 450px;">
+                        <h3 class="text-xl font-semibold mb-4 text-slate-700">🔄 Bench (<span id="benchCount">0</span>)</h3>
+                        <div id="benchPlayersList" class="space-y-2"></div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-lg shadow-lg mb-8 overflow-x-auto">
+                    <h2 class="text-2xl font-semibold mb-4 text-slate-700">Current Game Stats</h2>
+                    <table class="min-w-full divide-y divide-slate-200">
+                        <thead class="bg-slate-50">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Player</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Status</th>
+                                <th class="px-4 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">G</th>
+                                <th class="px-4 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">A</th>
+                                <th class="px-4 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">+/- (Game)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="currentGameStatsTableBody" class="bg-white divide-y divide-slate-200"></tbody>
+                    </table>
+                </div>
+                 <div class="text-center">
+                    <button id="quitCurrentGameButton" class="btn btn-secondary">Quit Game (No Save)</button>
+                </div>
+            </div>
+        </section>
+
+        <section id="overallStatsSection" class="tab-content bg-white p-6 rounded-lg shadow-lg">
+            <h2 class="text-2xl font-semibold mb-4 text-slate-700">Overall Player Statistics</h2>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-slate-200">
+                    <thead class="bg-slate-50">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Player</th>
+                            <th class="px-4 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Games Played</th>
+                            <th class="px-4 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Total Goals</th>
+                            <th class="px-4 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Total Assists</th>
+                            <th class="px-4 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Player +/-</th>
+                            <th class="px-4 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Keeper +/-</th>
+                        </tr>
+                    </thead>
+                    <tbody id="overallStatsTableBody" class="bg-white divide-y divide-slate-200">
+                        </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="gamesHistorySection" class="tab-content bg-white p-6 rounded-lg shadow-lg">
+            <h2 class="text-2xl font-semibold mb-4 text-slate-700">Games History</h2>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-slate-200">
+                    <thead class="bg-slate-50">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Date</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Opponent</th>
+                            <th class="px-4 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Score (You - Them)</th>
+                            <th class="px-4 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="gamesHistoryTableBody" class="bg-white divide-y divide-slate-200">
+                        </tbody>
+                </table>
+            </div>
+        </section>
+
+        <div id="scorerAssisterModal" class="modal">
+            <div class="modal-content">
+                <h3 class="text-xl font-semibold mb-4 text-slate-700">Goal Details</h3>
+                <div class="mb-4">
+                    <label for="scorerSelect" class="block text-sm font-medium text-slate-700 mb-1">Who Scored?</label>
+                    <select id="scorerSelect" class="w-full p-2 border border-slate-300 rounded-md shadow-sm"></select>
+                </div>
+                <div class="mb-6">
+                    <label for="assisterSelect" class="block text-sm font-medium text-slate-700 mb-1">Who Assisted? (Optional)</label>
+                    <select id="assisterSelect" class="w-full p-2 border border-slate-300 rounded-md shadow-sm"></select>
+                </div>
+                <div class="flex justify-end space-x-3">
+                    <button id="cancelGoalButton" class="btn bg-slate-200 text-slate-700 hover:bg-slate-300">Cancel</button>
+                    <button id="confirmGoalButton" class="btn btn-primary">Confirm Goal</button>
+                </div>
+            </div>
+        </div>
+         <div id="gameDetailsModal" class="modal">
+            <div class="modal-content max-w-2xl">
+                <h3 class="text-xl font-semibold mb-4 text-slate-700">Game Details: <span id="gameDetailOpponent"></span> (<span id="gameDetailDate"></span>)</h3>
+                <p class="mb-4"><strong>Final Score:</strong> <span id="gameDetailScore"></span></p>
+                <h4 class="text-lg font-medium mb-2 text-slate-600">Player Stats for this Game:</h4>
+                <div class="overflow-x-auto max-h-80">
+                    <table class="min-w-full divide-y divide-slate-200">
+                        <thead class="bg-slate-50">
+                            <tr>
+                                <th class="px-3 py-2 text-left text-xs font-medium text-slate-500 uppercase">Player</th>
+                                <th class="px-3 py-2 text-center text-xs font-medium text-slate-500 uppercase">G</th>
+                                <th class="px-3 py-2 text-center text-xs font-medium text-slate-500 uppercase">A</th>
+                                <th class="px-3 py-2 text-center text-xs font-medium text-slate-500 uppercase">+/- (Player)</th>
+                                <th class="px-3 py-2 text-center text-xs font-medium text-slate-500 uppercase">+/- (Keeper)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="gameDetailsTableBody" class="bg-white divide-y divide-slate-200"></tbody>
+                    </table>
+                </div>
+                <div class="mt-6 flex justify-end">
+                    <button id="closeGameDetailsButton" class="btn btn-secondary">Close</button>
+                </div>
+            </div>
+        </div>
+
+
+        <footer class="mt-12 text-center text-sm text-slate-500">
+            <p>Advanced Stat Tracking. Keep Improving!</p>
+        </footer>
+    </div>
+
+    <script>
+        // --- CONFIGURATION ---
+        const MAX_PLAYERS_PER_MATCH = 10; // Changed from 8
+        const MAX_ON_FIELD = 5;
+        const NUM_NEW_PLAYER_INPUTS = 10; // Changed from 3
+        const LOCAL_STORAGE_PLAYERS_KEY = 'football_stats_players_v2';
+        const LOCAL_STORAGE_GAMES_KEY = 'football_stats_games_v2';
+
+        // --- GLOBAL STATE ---
+        let allPlayersData = []; // { id, name, totalGamesPlayed, totalGoals, totalAssists, totalPlayerPlusMinus, totalKeeperPlusMinus }
+        let allGamesData = [];   // { gameId, date, opponentName, ourScore, theirScore, playerStatsThisGame: [{playerId, name, goals, assists, playerPlusMinus, keeperPlusMinus}] }
+        
+        let currentMatch = {
+            gameId: null,
+            opponentName: '',
+            teamScore: 0,
+            opponentScore: 0,
+            players: [], // { id, name, goals, assists, onField, isCurrentlyKeeper, playerPlusMinusThisGame, keeperPlusMinusThisGame }
+            isActive: false,
+            currentKeeperId: null
+        };
+
+        // --- DOM ELEMENTS ---
+        const messageBox = document.getElementById('messageBox');
+        const tabs = document.querySelectorAll('.tab-button');
+        const tabContents = document.querySelectorAll('.tab-content');
+
+        // New Game Setup / Current Game Tab
+        const newGameSetupSection = document.getElementById('newGameSetupSection');
+        const playerSetupScreen = document.getElementById('playerSetupScreen');
+        const gameInterfaceScreen = document.getElementById('gameInterfaceScreen');
+        const opponentNameInput = document.getElementById('opponentNameInput');
+        const existingPlayersList = document.getElementById('existingPlayersList');
+        const newPlayerInputsContainer = document.getElementById('newPlayerInputsContainer');
+        const startGameButton = document.getElementById('startGameButton');
+        const currentOpponentNameDisplay = document.getElementById('currentOpponentNameDisplay');
+        const endGameButton = document.getElementById('endGameButton');
+        const quitCurrentGameButton = document.getElementById('quitCurrentGameButton');
+
+        // Game Interface Elements
+        const teamScoreDisplay = document.getElementById('teamScoreDisplay');
+        const opponentScoreDisplay = document.getElementById('opponentScoreDisplay');
+        const ourGoalButton = document.getElementById('ourGoalButton');
+        const theirGoalButton = document.getElementById('theirGoalButton');
+        const onFieldPlayersList = document.getElementById('onFieldPlayersList');
+        const benchPlayersList = document.getElementById('benchPlayersList');
+        const onFieldCountDisplay = document.getElementById('onFieldCount');
+        const benchCountDisplay = document.getElementById('benchCount');
+        const currentGameStatsTableBody = document.getElementById('currentGameStatsTableBody');
+
+        // Overall Stats Tab
+        const overallStatsTableBody = document.getElementById('overallStatsTableBody');
+
+        // Games History Tab
+        const gamesHistoryTableBody = document.getElementById('gamesHistoryTableBody');
+
+        // Modals
+        const scorerAssisterModal = document.getElementById('scorerAssisterModal');
+        const scorerSelect = document.getElementById('scorerSelect');
+        const assisterSelect = document.getElementById('assisterSelect');
+        const confirmGoalButton = document.getElementById('confirmGoalButton');
+        const cancelGoalButton = document.getElementById('cancelGoalButton');
+
+        const gameDetailsModal = document.getElementById('gameDetailsModal');
+        const gameDetailOpponent = document.getElementById('gameDetailOpponent');
+        const gameDetailDate = document.getElementById('gameDetailDate');
+        const gameDetailScore = document.getElementById('gameDetailScore');
+        const gameDetailsTableBody = document.getElementById('gameDetailsTableBody');
+        const closeGameDetailsButton = document.getElementById('closeGameDetailsButton');
+
+
+        // --- UTILITY FUNCTIONS ---
+        function generateId() { return Date.now().toString(36) + Math.random().toString(36).substring(2, 9); }
+
+        function showMessage(text, type = 'info', duration = 3000) {
+            messageBox.textContent = text;
+            messageBox.className = 'message-box'; // Reset classes
+            if (type === 'error') messageBox.classList.add('bg-red-500');
+            else if (type === 'success') messageBox.classList.add('bg-green-500');
+            else messageBox.classList.add('bg-blue-500');
+            messageBox.style.display = 'block';
+            setTimeout(() => { messageBox.style.display = 'none'; }, duration);
+        }
+
+        // --- LOCAL STORAGE FUNCTIONS ---
+        function saveDataToLocalStorage() {
+            localStorage.setItem(LOCAL_STORAGE_PLAYERS_KEY, JSON.stringify(allPlayersData));
+            localStorage.setItem(LOCAL_STORAGE_GAMES_KEY, JSON.stringify(allGamesData));
+        }
+
+        function loadDataFromLocalStorage() {
+            const storedPlayers = localStorage.getItem(LOCAL_STORAGE_PLAYERS_KEY);
+            if (storedPlayers) allPlayersData = JSON.parse(storedPlayers);
+            
+            const storedGames = localStorage.getItem(LOCAL_STORAGE_GAMES_KEY);
+            if (storedGames) allGamesData = JSON.parse(storedGames);
+        }
+
+        // --- TAB NAVIGATION ---
+        function initTabs() {
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    tabs.forEach(t => t.classList.remove('active'));
+                    tabContents.forEach(tc => tc.classList.remove('active'));
+                    tab.classList.add('active');
+                    document.getElementById(tab.dataset.tab).classList.add('active');
+                    
+                    // Refresh content when tab becomes active
+                    if (tab.dataset.tab === 'overallStatsSection') renderOverallStatsTable();
+                    if (tab.dataset.tab === 'gamesHistorySection') renderGamesHistoryTable();
+                    if (tab.dataset.tab === 'newGameSetupSection') {
+                        if (!currentMatch.isActive) {
+                            showPlayerSetupScreen(); // Show setup if no active game
+                        } else {
+                            showGameInterfaceScreen(); // Show game if active
+                        }
+                    }
+                });
+            });
+        }
+        
+        // --- INITIALIZATION ---
+        function initApp() {
+            loadDataFromLocalStorage();
+            initTabs();
+            populateNewPlayerInputs();
+            populateExistingPlayersList(); // For the setup screen
+
+            // Event Listeners
+            startGameButton.addEventListener('click', handleStartGame);
+            endGameButton.addEventListener('click', handleEndGame);
+            quitCurrentGameButton.addEventListener('click', handleQuitCurrentGame);
+
+            ourGoalButton.addEventListener('click', handleOurGoalSetup);
+            theirGoalButton.addEventListener('click', handleTheirGoal);
+            
+            confirmGoalButton.addEventListener('click', handleConfirmGoal);
+            cancelGoalButton.addEventListener('click', () => scorerAssisterModal.style.display = 'none');
+            closeGameDetailsButton.addEventListener('click', () => gameDetailsModal.style.display = 'none');
+
+            // Initial view: if a game was active and page reloaded, could restore, but for now, start fresh.
+            showPlayerSetupScreen();
+            renderOverallStatsTable(); // Populate stats tables on load
+            renderGamesHistoryTable();
+        }
+
+        function populateNewPlayerInputs() {
+            newPlayerInputsContainer.innerHTML = ''; // Clear previous
+            for (let i = 0; i < NUM_NEW_PLAYER_INPUTS; i++) {
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.placeholder = `New Player ${i + 1} Name`;
+                input.id = `new_player_name_${i}`;
+                input.className = 'w-full p-2 border border-slate-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500';
+                newPlayerInputsContainer.appendChild(input);
+            }
+        }
+
+        function populateExistingPlayersList() {
+            existingPlayersList.innerHTML = ''; // Clear previous
+            if (allPlayersData.length === 0) {
+                existingPlayersList.innerHTML = '<p class="text-sm text-slate-500">No existing players found. Add new players below.</p>';
+                return;
+            }
+            allPlayersData.sort((a, b) => a.name.localeCompare(b.name)).forEach(player => {
+                const div = document.createElement('div');
+                div.className = 'flex items-center';
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.id = `existing_player_${player.id}`;
+                checkbox.value = player.id;
+                checkbox.name = player.name; // Store name for easy access
+                checkbox.className = 'h-4 w-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500 mr-2';
+                
+                const label = document.createElement('label');
+                label.htmlFor = `existing_player_${player.id}`;
+                label.textContent = player.name;
+                label.className = 'text-sm text-slate-700';
+                
+                div.appendChild(checkbox);
+                div.appendChild(label);
+                existingPlayersList.appendChild(div);
+            });
+        }
+        
+        function showPlayerSetupScreen() {
+            playerSetupScreen.style.display = 'block';
+            gameInterfaceScreen.classList.add('hidden');
+            opponentNameInput.value = ''; // Clear opponent name
+            populateExistingPlayersList(); // Refresh list of existing players
+            populateNewPlayerInputs(); // Clear new player inputs
+            // Also update the descriptive paragraph
+            const setupDesc = playerSetupScreen.querySelector('p.text-sm.text-slate-500.mb-4');
+            if (setupDesc) {
+                setupDesc.textContent = `Select existing players, add new ones (up to ${MAX_PLAYERS_PER_MATCH} total for the match), and name your opponent.`;
+            }
+        }
+
+        function showGameInterfaceScreen() {
+            playerSetupScreen.style.display = 'none';
+            gameInterfaceScreen.classList.remove('hidden');
+            currentOpponentNameDisplay.textContent = currentMatch.opponentName || 'Opponent';
+        }
+
+        // --- GAME SETUP AND MANAGEMENT ---
+        function handleStartGame() {
+            const opponentName = opponentNameInput.value.trim() || 'Unnamed Opponent';
+            let selectedPlayersForMatch = [];
+
+            // Get selected existing players
+            existingPlayersList.querySelectorAll('input[type="checkbox"]:checked').forEach(cb => {
+                const existingPlayer = allPlayersData.find(p => p.id === cb.value);
+                if (existingPlayer) {
+                     selectedPlayersForMatch.push({
+                        id: existingPlayer.id,
+                        name: existingPlayer.name, // Use stored name
+                        goals: 0, assists: 0, onField: false, isCurrentlyKeeper: false,
+                        playerPlusMinusThisGame: 0, keeperPlusMinusThisGame: 0
+                    });
+                }
+            });
+
+            // Get new players
+            for (let i = 0; i < NUM_NEW_PLAYER_INPUTS; i++) {
+                const nameInput = document.getElementById(`new_player_name_${i}`);
+                const name = nameInput.value.trim();
+                if (name) {
+                    let player = allPlayersData.find(p => p.name.toLowerCase() === name.toLowerCase());
+                    let playerId;
+                    if (player) { 
+                        playerId = player.id;
+                        if (selectedPlayersForMatch.find(p => p.id === playerId)) continue;
+                    } else { 
+                        playerId = generateId();
+                        allPlayersData.push({
+                            id: playerId, name: name, totalGamesPlayed: 0, totalGoals: 0, 
+                            totalAssists: 0, totalPlayerPlusMinus: 0, totalKeeperPlusMinus: 0
+                        });
+                    }
+                    selectedPlayersForMatch.push({
+                        id: playerId, name: name,
+                        goals: 0, assists: 0, onField: false, isCurrentlyKeeper: false,
+                        playerPlusMinusThisGame: 0, keeperPlusMinusThisGame: 0
+                    });
+                }
+            }
+            
+            if (selectedPlayersForMatch.length === 0) {
+                showMessage('Please select or add at least one player for the match.', 'error');
+                return;
+            }
+            if (selectedPlayersForMatch.length > MAX_PLAYERS_PER_MATCH) {
+                showMessage(`You can select a maximum of ${MAX_PLAYERS_PER_MATCH} players for a match.`, 'error');
+                return;
+            }
+
+            // Assign initial onField status
+            selectedPlayersForMatch.forEach((p, index) => {
+                p.onField = index < MAX_ON_FIELD;
+            });
+
+            currentMatch = {
+                gameId: generateId(),
+                opponentName: opponentName,
+                teamScore: 0,
+                opponentScore: 0,
+                players: selectedPlayersForMatch,
+                isActive: true,
+                currentKeeperId: null 
+            };
+            
+            showGameInterfaceScreen();
+            renderCurrentGameAll();
+            showMessage(`Game started vs ${opponentName}! Designate a keeper from the on-field players.`, 'success');
+        }
+
+        function handleEndGame() {
+            if (!currentMatch.isActive) return;
+            if (!currentMatch.currentKeeperId && currentMatch.players.some(p => p.onField)) {
+                if (!confirm("No keeper was designated for the entire game. +/- for keeper stats won't be accurate. End game anyway?")) {
+                    return;
+                }
+            }
+
+            const gameData = {
+                gameId: currentMatch.gameId,
+                date: new Date().toISOString(),
+                opponentName: currentMatch.opponentName,
+                ourScore: currentMatch.teamScore,
+                theirScore: currentMatch.opponentScore,
+                playerStatsThisGame: currentMatch.players.map(p => ({
+                    playerId: p.id,
+                    name: p.name, 
+                    goals: p.goals,
+                    assists: p.assists,
+                    playerPlusMinus: p.playerPlusMinusThisGame,
+                    keeperPlusMinus: p.keeperPlusMinusThisGame
+                }))
+            };
+            allGamesData.push(gameData);
+
+            currentMatch.players.forEach(matchPlayer => {
+                let globalPlayer = allPlayersData.find(p => p.id === matchPlayer.id);
+                if (globalPlayer) {
+                    globalPlayer.totalGamesPlayed++;
+                    globalPlayer.totalGoals += matchPlayer.goals;
+                    globalPlayer.totalAssists += matchPlayer.assists;
+                    globalPlayer.totalPlayerPlusMinus += matchPlayer.playerPlusMinusThisGame;
+                    globalPlayer.totalKeeperPlusMinus += matchPlayer.keeperPlusMinusThisGame;
+                } else { 
+                    console.error("Error: Player from match not found in global player data", matchPlayer);
+                }
+            });
+
+            saveDataToLocalStorage();
+            
+            showMessage('Game ended and stats saved!', 'success');
+            resetCurrentMatchState();
+            showPlayerSetupScreen(); 
+            renderOverallStatsTable(); 
+            renderGamesHistoryTable();
+        }
+        
+        function handleQuitCurrentGame() {
+            if (currentMatch.isActive && confirm("Are you sure you want to quit this game? No stats will be saved.")) {
+                resetCurrentMatchState();
+                showPlayerSetupScreen();
+                showMessage('Current game quit. No stats were saved.', 'info');
+            } else if (!currentMatch.isActive) {
+                 showPlayerSetupScreen(); 
+            }
+        }
+
+        function resetCurrentMatchState() {
+            currentMatch = {
+                gameId: null, opponentName: '', teamScore: 0, opponentScore: 0,
+                players: [], isActive: false, currentKeeperId: null
+            };
+        }
+
+        function handlePlayerClick(playerId) { 
+            if (!currentMatch.isActive) return;
+            const player = currentMatch.players.find(p => p.id === playerId);
+            if (!player) return;
+
+            const onFieldPlayers = currentMatch.players.filter(p => p.onField);
+
+            if (player.onField) { 
+                if (player.id === currentMatch.currentKeeperId) {
+                    showMessage('Keeper cannot be subbed off directly. Change keeper first, then sub.', 'warning');
+                    return;
+                }
+                player.onField = false;
+            } else { 
+                if (onFieldPlayers.length < MAX_ON_FIELD) {
+                    player.onField = true;
+                } else {
+                    showMessage('Field is full! Sub another player out first.', 'info');
+                    return; 
+                }
+            }
+            renderCurrentGameAll();
+        }
+
+        function handleSetKeeper(playerId) {
+            if (!currentMatch.isActive) return;
+            const playerToMakeKeeper = currentMatch.players.find(p => p.id === playerId);
+
+            if (!playerToMakeKeeper || !playerToMakeKeeper.onField) {
+                showMessage('Selected player must be on the field to be made keeper.', 'error');
+                return;
+            }
+
+            if (currentMatch.currentKeeperId) {
+                const oldKeeper = currentMatch.players.find(p => p.id === currentMatch.currentKeeperId);
+                if (oldKeeper) oldKeeper.isCurrentlyKeeper = false;
+            }
+            
+            playerToMakeKeeper.isCurrentlyKeeper = true;
+            currentMatch.currentKeeperId = playerId;
+            
+            renderCurrentGameAll();
+            showMessage(`${playerToMakeKeeper.name} is now the Goalkeeper.`, 'success');
+        }
+        
+        // --- GOAL RECORDING ---
+        function handleOurGoalSetup() {
+            if (!currentMatch.isActive) return;
+            const onFieldPlayers = currentMatch.players.filter(p => p.onField);
+            if (onFieldPlayers.length === 0) {
+                showMessage('No players on the field to score or assist!', 'error');
+                return;
+            }
+            if (!currentMatch.currentKeeperId) {
+                showMessage('Please designate a Goalkeeper before recording goals.', 'warning');
+                return;
+            }
+
+            scorerSelect.innerHTML = '';
+            assisterSelect.innerHTML = '<option value="">None</option>'; 
+
+            onFieldPlayers.forEach(p => {
+                const optionScorer = document.createElement('option');
+                optionScorer.value = p.id; optionScorer.textContent = p.name;
+                scorerSelect.appendChild(optionScorer);
+
+                const optionAssister = document.createElement('option');
+                optionAssister.value = p.id; optionAssister.textContent = p.name;
+                assisterSelect.appendChild(optionAssister);
+            });
+            
+            scorerAssisterModal.style.display = 'block';
+        }
+
+        function handleConfirmGoal() {
+            const scorerId = scorerSelect.value;
+            const assisterId = assisterSelect.value;
+
+            if (!scorerId) { showMessage('Please select a scorer.', 'error'); return; }
+            if (scorerId === assisterId && assisterId !== "") { showMessage('Scorer and assister cannot be the same player.', 'error'); return; }
+
+            currentMatch.teamScore++;
+            
+            currentMatch.players.filter(p => p.onField).forEach(p => {
+                if (p.id === currentMatch.currentKeeperId) {
+                    p.keeperPlusMinusThisGame++;
+                } else {
+                    p.playerPlusMinusThisGame++;
+                }
+            });
+            
+            const scorer = currentMatch.players.find(p => p.id === scorerId);
+            if (scorer) scorer.goals++;
+
+            if (assisterId) {
+                const assister = currentMatch.players.find(p => p.id === assisterId);
+                if (assister) assister.assists++;
+            }
+            
+            scorerAssisterModal.style.display = 'none';
+            renderCurrentGameAll();
+            showMessage('Goal recorded for your team!', 'success');
+        }
+
+        function handleTheirGoal() {
+            if (!currentMatch.isActive) return;
+             if (!currentMatch.currentKeeperId && currentMatch.players.some(p => p.onField)) {
+                showMessage('No Goalkeeper designated. +/- for keeper might be affected.', 'warning');
+            }
+            currentMatch.opponentScore++;
+            currentMatch.players.filter(p => p.onField).forEach(p => {
+                 if (p.id === currentMatch.currentKeeperId) {
+                    p.keeperPlusMinusThisGame--;
+                } else {
+                    p.playerPlusMinusThisGame--;
+                }
+            });
+            renderCurrentGameAll();
+            showMessage('Opponent scored.', 'info');
+        }
+
+        // --- RENDERING FUNCTIONS for Current Game ---
+        function renderCurrentGameAll() {
+            if (!currentMatch.isActive) return;
+            renderCurrentGamePlayerLists();
+            renderCurrentGameStatsTable();
+            renderCurrentGameScoreboard();
+        }
+
+        function renderCurrentGamePlayerLists() {
+            onFieldPlayersList.innerHTML = '';
+            benchPlayersList.innerHTML = '';
+            let onFieldPlayerCount = 0;
+            let benchPlayerCount = 0;
+
+            currentMatch.players.forEach(player => {
+                const playerElement = document.createElement('div');
+                playerElement.className = 'player-card p-3 bg-slate-100 rounded-md shadow-sm flex items-center justify-between';
+                
+                const nameSpan = document.createElement('span');
+                nameSpan.textContent = player.name;
+                nameSpan.className = 'cursor-pointer flex-grow';
+                nameSpan.onclick = () => handlePlayerClick(player.id); 
+                playerElement.appendChild(nameSpan);
+
+                if (player.isCurrentlyKeeper) {
+                    const keeperBadge = document.createElement('span');
+                    keeperBadge.className = 'keeper-badge';
+                    keeperBadge.textContent = 'GK';
+                    nameSpan.appendChild(keeperBadge); 
+                }
+                
+                const gamePlusMinus = player.playerPlusMinusThisGame + player.keeperPlusMinusThisGame;
+                const plusMinusBadge = document.createElement('span');
+                plusMinusBadge.textContent = `${gamePlusMinus >= 0 ? '+' : ''}${gamePlusMinus}`;
+                plusMinusBadge.className = `ml-2 mr-2 px-2 py-0.5 text-xs font-semibold rounded-full ${gamePlusMinus > 0 ? 'bg-green-200 text-green-800' : gamePlusMinus < 0 ? 'bg-red-200 text-red-800' : 'bg-slate-200 text-slate-800'}`;
+                playerElement.appendChild(plusMinusBadge);
+
+                if (player.onField && player.id !== currentMatch.currentKeeperId) {
+                    const setKeeperButton = document.createElement('button');
+                    setKeeperButton.textContent = 'Make GK';
+                    setKeeperButton.className = 'btn btn-sm btn-warning ml-auto'; 
+                    setKeeperButton.onclick = () => handleSetKeeper(player.id);
+                    playerElement.appendChild(setKeeperButton);
+                }
+
+
+                if (player.onField) {
+                    onFieldPlayersList.appendChild(playerElement);
+                    onFieldPlayerCount++;
+                } else {
+                    benchPlayersList.appendChild(playerElement);
+                    benchPlayerCount++;
+                }
+            });
+            onFieldCountDisplay.textContent = onFieldPlayerCount;
+            benchCountDisplay.textContent = benchPlayerCount;
+
+            if (onFieldPlayerCount === 0 && currentMatch.isActive) {
+                onFieldPlayersList.innerHTML = '<p class="text-sm text-slate-400 text-center py-4">No players on the field.</p>';
+            }
+             if (benchPlayerCount === 0 && currentMatch.isActive && currentMatch.players.length > 0) {
+                 benchPlayersList.innerHTML = '<p class="text-sm text-slate-400 text-center py-4">Bench is empty.</p>';
+            }
+        }
+
+        function renderCurrentGameStatsTable() {
+            currentGameStatsTableBody.innerHTML = '';
+            const sortedPlayers = [...currentMatch.players].sort((a, b) => {
+                if (a.onField && !b.onField) return -1; if (!a.onField && b.onField) return 1;
+                return a.name.localeCompare(b.name);
+            });
+
+            sortedPlayers.forEach(player => {
+                const row = currentGameStatsTableBody.insertRow();
+                row.className = player.onField ? 'bg-green-50' : 'bg-white';
+                row.insertCell().textContent = player.name + (player.isCurrentlyKeeper ? ' (GK)' : '');
+                
+                const statusCell = row.insertCell();
+                const statusBadge = document.createElement('span');
+                statusBadge.textContent = player.onField ? 'On Field' : 'Bench';
+                statusBadge.className = `px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${player.onField ? 'bg-green-100 text-green-800' : 'bg-slate-100 text-slate-800'}`;
+                statusCell.appendChild(statusBadge);
+                
+                row.insertCell().textContent = player.goals; row.cells[2].className = 'text-center';
+                row.insertCell().textContent = player.assists; row.cells[3].className = 'text-center';
+                
+                const gamePlusMinus = player.playerPlusMinusThisGame + player.keeperPlusMinusThisGame;
+                const plusMinusCell = row.insertCell();
+                plusMinusCell.textContent = `${gamePlusMinus >= 0 ? '+' : ''}${gamePlusMinus}`;
+                plusMinusCell.className = `text-center font-semibold ${gamePlusMinus > 0 ? 'text-green-600' : gamePlusMinus < 0 ? 'text-red-600' : 'text-slate-600'}`;
+            });
+        }
+
+        function renderCurrentGameScoreboard() {
+            teamScoreDisplay.textContent = currentMatch.teamScore;
+            opponentScoreDisplay.textContent = currentMatch.opponentScore;
+        }
+
+        // --- RENDERING FUNCTIONS for Overall Stats and Game History ---
+        function renderOverallStatsTable() {
+            overallStatsTableBody.innerHTML = '';
+            if (allPlayersData.length === 0) {
+                overallStatsTableBody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-slate-500">No player data available. Play some games!</td></tr>';
+                return;
+            }
+            allPlayersData.sort((a,b) => a.name.localeCompare(b.name)).forEach(player => {
+                const row = overallStatsTableBody.insertRow();
+                row.insertCell().textContent = player.name;
+                row.insertCell().textContent = player.totalGamesPlayed; row.cells[1].className = 'text-center';
+                row.insertCell().textContent = player.totalGoals; row.cells[2].className = 'text-center';
+                row.insertCell().textContent = player.totalAssists; row.cells[3].className = 'text-center';
+                
+                const playerPMCell = row.insertCell();
+                playerPMCell.textContent = `${player.totalPlayerPlusMinus >= 0 ? '+' : ''}${player.totalPlayerPlusMinus}`;
+                playerPMCell.className = `text-center font-semibold ${player.totalPlayerPlusMinus > 0 ? 'text-green-600' : player.totalPlayerPlusMinus < 0 ? 'text-red-600' : 'text-slate-600'}`;
+
+                const keeperPMCell = row.insertCell();
+                keeperPMCell.textContent = `${player.totalKeeperPlusMinus >= 0 ? '+' : ''}${player.totalKeeperPlusMinus}`;
+                keeperPMCell.className = `text-center font-semibold ${player.totalKeeperPlusMinus > 0 ? 'text-green-600' : player.totalKeeperPlusMinus < 0 ? 'text-red-600' : 'text-slate-600'}`;
+            });
+        }
+
+        function renderGamesHistoryTable() {
+            gamesHistoryTableBody.innerHTML = '';
+            if (allGamesData.length === 0) {
+                gamesHistoryTableBody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-slate-500">No game history found.</td></tr>';
+                return;
+            }
+            allGamesData.sort((a,b) => new Date(b.date) - new Date(a.date)).forEach(game => {
+                const row = gamesHistoryTableBody.insertRow();
+                row.insertCell().textContent = new Date(game.date).toLocaleDateString();
+                row.insertCell().textContent = game.opponentName;
+                row.insertCell().textContent = `${game.ourScore} - ${game.theirScore}`; row.cells[2].className = 'text-center';
+                
+                const actionsCell = row.insertCell();
+                actionsCell.className = 'text-center';
+                const viewDetailsButton = document.createElement('button');
+                viewDetailsButton.textContent = 'View Details';
+                viewDetailsButton.className = 'btn btn-sm btn-primary';
+                viewDetailsButton.onclick = () => showGameDetails(game.gameId);
+                actionsCell.appendChild(viewDetailsButton);
+            });
+        }
+        
+        function showGameDetails(gameId) {
+            const game = allGamesData.find(g => g.gameId === gameId);
+            if (!game) {
+                showMessage('Game details not found.', 'error');
+                return;
+            }
+
+            gameDetailOpponent.textContent = game.opponentName;
+            gameDetailDate.textContent = new Date(game.date).toLocaleDateString();
+            gameDetailScore.textContent = `${game.ourScore} - ${game.theirScore}`;
+            
+            gameDetailsTableBody.innerHTML = '';
+            if (!game.playerStatsThisGame || game.playerStatsThisGame.length === 0) {
+                gameDetailsTableBody.innerHTML = '<tr><td colspan="5" class="text-center py-3 text-slate-500">No player stats recorded for this game.</td></tr>';
+            } else {
+                game.playerStatsThisGame.sort((a,b) => a.name.localeCompare(b.name)).forEach(ps => {
+                    const row = gameDetailsTableBody.insertRow();
+                    row.insertCell().textContent = ps.name;
+                    row.insertCell().textContent = ps.goals; row.cells[1].className = 'text-center';
+                    row.insertCell().textContent = ps.assists; row.cells[2].className = 'text-center';
+
+                    const playerPMCell = row.insertCell();
+                    playerPMCell.textContent = `${ps.playerPlusMinus >= 0 ? '+' : ''}${ps.playerPlusMinus}`;
+                    playerPMCell.className = `text-center ${ps.playerPlusMinus > 0 ? 'text-green-600' : ps.playerPlusMinus < 0 ? 'text-red-600' : 'text-slate-600'}`;
+                    
+                    const keeperPMCell = row.insertCell();
+                    keeperPMCell.textContent = `${ps.keeperPlusMinus >= 0 ? '+' : ''}${ps.keeperPlusMinus}`;
+                    keeperPMCell.className = `text-center ${ps.keeperPlusMinus > 0 ? 'text-green-600' : ps.keeperPlusMinus < 0 ? 'text-red-600' : 'text-slate-600'}`;
+                });
+            }
+            gameDetailsModal.style.display = 'block';
+        }
+
+        // --- START THE APP ---
+        document.addEventListener('DOMContentLoaded', initApp);
+    </script>
+</body>
+</html>
